@@ -1,0 +1,6 @@
+# Демонстрация без ошибок
+pwd
+ls
+echo hello from script
+cd /
+pwd

@@ -1,0 +1,19 @@
+# Этап 5 (three_levels.xml): проверка touch и cp
+pwd
+find / -maxdepth 2
+
+# touch: создаём файл журнала
+touch /var/log/new.log
+
+# копия бинарника
+cp /usr/bin/hello /usr/bin/hello_copy
+
+# рекурсивная копия каталога /usr -> /var/usr_backup
+cp -r /usr /var/usr_backup
+
+# проверяем
+find /usr -maxdepth 2
+find /var -maxdepth 2
+
+# ожидаемая ошибка: каталог без -r
+cp /usr /var/usr_clone_should_fail

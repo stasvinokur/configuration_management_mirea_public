@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<vfs>
+  <dir name="/">
+    <file name="broken.txt" encoding="utf-8">Нет закрывающего тега
+  <!-- отсутствует </dir> и </vfs> -->

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<vfs>
+  <dir name="/">
+    <dir name="etc">
+      <file name="motd" encoding="utf-8">Добро пожаловать!</file>
+    </dir>
+    <dir name="var">
+      <dir name="log">
+        <file name="app.log" encoding="utf-8">[info] started</file>
+      </dir>
+    </dir>
+    <dir name="usr">
+      <dir name="bin">
+        <file name="hello" base64="true">aGVsbG8tdmZzCg==</file>
+      </dir>
+    </dir>
+  </dir>
+</vfs>

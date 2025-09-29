@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<vfs>
+  <dir name="/">
+    <file name="readme.txt" encoding="utf-8">Это VFS из XML. Все операции выполняются только в памяти.</file>
+    <dir name="home">
+      <dir name="user">
+        <file name="notes.txt" encoding="utf-8">Привет!</file>
+      </dir>
+    </dir>
+  </dir>
+</vfs>

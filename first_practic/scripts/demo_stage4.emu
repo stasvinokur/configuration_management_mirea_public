@@ -1,0 +1,14 @@
+# Демонстрация Этап 4: uname и find
+pwd
+uname
+uname -a
+uname -s -n -r -m -o
+
+# find по корню
+find /
+# только каталоги на первом уровне
+find / -type d -maxdepth 1
+# только файлы с маской
+find / -name "*.txt" -type f
+# поиск внутри /usr (если есть в XML)
+find /usr -maxdepth 2

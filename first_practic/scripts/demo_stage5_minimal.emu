@@ -1,0 +1,19 @@
+# Этап 5 (minimal.xml): проверка touch и cp
+pwd
+find / -maxdepth 2
+
+# touch: создаём пустой файл
+touch /home/user/empty.txt
+# копируем файл в новый файл
+cp /home/user/notes.txt /home/user/notes_copy.txt
+# копируем файл в каталог
+cp /home/user/notes.txt /home/
+
+# рекурсивная копия каталога user -> /home/backup
+cp -r /home/user /home/backup
+
+# проверяем результат
+find /home -maxdepth 2
+
+# ожидаемая ошибка: копирование каталога без -r
+cp /home/user /home/user_copy_should_fail
