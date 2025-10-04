@@ -90,56 +90,5 @@ base64 или аналогичный формат.
 
 ## Что реализовано и как тестировать
 
-Этап 2:
-uv run shell_emulator.py --vfs ./vfs --script ./scripts/demo_ok.emu
-uv run shell_emulator.py --vfs ./vfs
-
-sh scripts/run_only_script.sh
-
-Этап 3:
-Запуск:
-- XML (основной режим):
-  uv run shell_emulator.py --vfs ./vfs/minimal.xml
-  uv run shell_emulator.py --vfs ./vfs/three_levels.xml --script ./scripts/demo_ok.emu
-
-- Проверка ошибок:
-  uv run shell_emulator.py --vfs ./vfs/bad.xml
-  (Эмулятор выведет "Ошибка загрузки VFS: ..." и продолжит с минимальной VFS по умолчанию.)
-
-- Совместимость (каталог → импорт в память):
-  uv run shell_emulator.py --vfs ./vfs
-
-Этап 4.
-Добавлено:
-- uname: минимальная эмуляция
-  * Без флагов: выводит "VFS-Emu"
-  * -a: VFS-Emu <hostname> 0.1 x86_64 GNU/Linux
-  * -s/-n/-r/-m/-p/-o: выводит выбранные поля (в порядке указания)
-- find [path] [-name PATTERN] [-type f|d] [-maxdepth N]
-  * path по умолчанию: .
-  * PATTERN — маска (fnmatch, поддерживает * и ?)
-  * -type: фильтр по типу (f – файл, d – каталог)
-  * -maxdepth: ограничение глубины (0 — только стартовый узел)
-
-Примеры:
-  uv run shell_emulator.py --vfs ./vfs/minimal.xml --script ./scripts/demo_stage4.emu
-  uv run shell_emulator.py --vfs ./vfs/three_levels.xml --script ./scripts/demo_stage4.emu
-
-Этап 5. Добавлено:
-
-- `touch FILE...`
-  - Создаёт пустой файл, если его нет.
-  - Если файл уже есть — ничего не делает.
-  - Для каталогов `touch` не применим (будет сообщение об ошибке).
-
-- `cp [-r] SRC DST`
-  - Копирование файлов и каталогов **только в памяти** (VFS).
-  - Без `-r` копируются **только файлы**. Для каталогов требуется флаг `-r`.
-  - Если `DST` — существующий файл и `SRC` — файл, будет **перезапись**.
-  - Если `DST` — существующий каталог, копия попадёт внутрь как `DST/SRC_NAME`.
-  - Для каталогов **не выполняется слияние**: если цель-каталог уже существует — будет ошибка.
-
-Примеры запуска:
-uv run shell_emulator.py --vfs ./vfs/minimal.xml --script ./scripts/demo_stage5_minimal.emu
-
-uv run shell_emulator.py --vfs ./vfs/three_levels.xml --script ./scripts/demo_stage5_three_levels.emu
+Этап 1:
+uv run shell_emulator.py
