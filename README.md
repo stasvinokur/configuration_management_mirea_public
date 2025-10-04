@@ -127,3 +127,22 @@ sh scripts/run_only_script.sh
 Примеры:
   uv run shell_emulator.py --vfs ./vfs/minimal.xml --script ./scripts/demo_stage4.emu
   uv run shell_emulator.py --vfs ./vfs/three_levels.xml --script ./scripts/demo_stage4.emu
+
+Этап 5. Добавлено:
+
+- `touch FILE...`
+  - Создаёт пустой файл, если его нет.
+  - Если файл уже есть — ничего не делает.
+  - Для каталогов `touch` не применим (будет сообщение об ошибке).
+
+- `cp [-r] SRC DST`
+  - Копирование файлов и каталогов **только в памяти** (VFS).
+  - Без `-r` копируются **только файлы**. Для каталогов требуется флаг `-r`.
+  - Если `DST` — существующий файл и `SRC` — файл, будет **перезапись**.
+  - Если `DST` — существующий каталог, копия попадёт внутрь как `DST/SRC_NAME`.
+  - Для каталогов **не выполняется слияние**: если цель-каталог уже существует — будет ошибка.
+
+Примеры запуска:
+uv run shell_emulator.py --vfs ./vfs/minimal.xml --script ./scripts/demo_stage5_minimal.emu
+
+uv run shell_emulator.py --vfs ./vfs/three_levels.xml --script ./scripts/demo_stage5_three_levels.emu
