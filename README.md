@@ -92,3 +92,9 @@ base64 или аналогичный формат.
 
 Этап 1:
 uv run shell_emulator.py
+
+Этап 2:
+uv run shell_emulator.py --vfs ./vfs --script ./scripts/demo_ok.emu
+uv run shell_emulator.py --vfs ./vfs
+
+sh scripts/run_only_script.sh
