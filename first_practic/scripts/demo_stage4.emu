@@ -1,4 +1,5 @@
 # Демонстрация Этап 4: uname и find
+echo hello
 pwd
 uname
 uname -a
