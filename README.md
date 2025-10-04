@@ -98,3 +98,16 @@ uv run shell_emulator.py --vfs ./vfs --script ./scripts/demo_ok.emu
 uv run shell_emulator.py --vfs ./vfs
 
 sh scripts/run_only_script.sh
+
+Этап 3:
+Запуск:
+- XML (основной режим):
+  uv run shell_emulator.py --vfs ./vfs/minimal.xml
+  uv run shell_emulator.py --vfs ./vfs/three_levels.xml --script ./scripts/demo_ok.emu
+
+- Проверка ошибок:
+  uv run shell_emulator.py --vfs ./vfs/bad.xml
+  (Эмулятор выведет "Ошибка загрузки VFS: ..." и продолжит с минимальной VFS по умолчанию.)
+
+- Совместимость (каталог → импорт в память):
+  uv run shell_emulator.py --vfs ./vfs
