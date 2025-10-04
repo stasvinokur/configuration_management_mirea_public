@@ -111,3 +111,19 @@ sh scripts/run_only_script.sh
 
 - Совместимость (каталог → импорт в память):
   uv run shell_emulator.py --vfs ./vfs
+
+Этап 4.
+Добавлено:
+- uname: минимальная эмуляция
+  * Без флагов: выводит "VFS-Emu"
+  * -a: VFS-Emu <hostname> 0.1 x86_64 GNU/Linux
+  * -s/-n/-r/-m/-p/-o: выводит выбранные поля (в порядке указания)
+- find [path] [-name PATTERN] [-type f|d] [-maxdepth N]
+  * path по умолчанию: .
+  * PATTERN — маска (fnmatch, поддерживает * и ?)
+  * -type: фильтр по типу (f – файл, d – каталог)
+  * -maxdepth: ограничение глубины (0 — только стартовый узел)
+
+Примеры:
+  uv run shell_emulator.py --vfs ./vfs/minimal.xml --script ./scripts/demo_stage4.emu
+  uv run shell_emulator.py --vfs ./vfs/three_levels.xml --script ./scripts/demo_stage4.emu
