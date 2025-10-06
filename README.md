@@ -303,3 +303,31 @@ uv run shell_emulator.py --vfs ./vfs/three_levels.xml --script ./scripts/demo_st
   Вывод содержит уровни графа и список детей для каждого пакета.
 - Ограничение глубины: задайте `--max-depth 1`, чтобы увидеть только прямые зависимости.
 - Фильтрация пакетов: добавьте `--filter D` — узлы, содержащие `D`, будут пропущены, а список фильтрованных пакетов появится в конце вывода.
+
+### Этап 4
+- Добавлена топологическая сортировка для вывода порядка загрузки зависимостей (leaf → root), активируется флагом `--show-load-order`.
+- Для циклических графов выводится предупреждение с перечнем узлов, которые образуют цикл, и порядок доступных зависимостей сохраняется по BFS.
+- Результат можно сравнить со штатным инструментом (`cargo tree`) для валидации порядка загрузки в реальном проекте.
+
+#### Как запускать
+- Реальный (манифест):
+  ```bash
+  uv run python second_practic/dependency_cli.py \
+    --package sample \
+    --repository ./second_practic/test_data/sample_crate/Cargo.toml \
+    --version 1.0 \
+    --test-mode file \
+    --show-load-order
+  ```
+  После списка зависимостей появится секция с порядком загрузки leaf → root.
+- Циклический граф: 
+  ```bash
+  uv run python second_practic/dependency_cli.py \
+    --package A \
+    --repository ./second_practic/test_data/graph_repo.txt \
+    --version 0.1 \
+    --test-mode file \
+    --max-depth 3 \
+    --show-load-order
+  ```
+  Команда покажет частичный порядок и список узлов в цикле (A, C, E) для дальнейшего анализа и сравнения с результатом `cargo tree`.

@@ -92,6 +92,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=None,
         help="Подстрока для фильтрации пакетов",
     )
+    parser.add_argument(
+        "--show-load-order",
+        action="store_true",
+        help="Отобразить порядок загрузки зависимостей (этап 4)",
+    )
 
     args = parser.parse_args(argv)
 
@@ -355,6 +360,95 @@ def print_graph(
             print(f"- {name}")
 
 
+def calculate_load_order(
+    entries: Iterable[GraphEntry],
+    edges: dict[tuple[str, str | None], list[str]],
+) -> tuple[list[str], list[str], list[str]]:
+    display_names: dict[str, str] = {}
+    adjacency: dict[str, list[str]] = {}
+    indegree: dict[str, int] = {}
+
+    fallback_order: list[str] = []
+    fallback_seen: set[str] = set()
+
+    for entry in entries:
+        key = entry.name.lower()
+        if key not in display_names:
+            display_names[key] = entry.name
+        adjacency.setdefault(key, [])
+        indegree.setdefault(key, 0)
+        if key not in fallback_seen:
+            fallback_order.append(entry.name)
+            fallback_seen.add(key)
+
+    for (source_lower, _version), children in edges.items():
+        parent_key = source_lower
+        display_names.setdefault(parent_key, parent_key)
+        adjacency.setdefault(parent_key, [])
+        indegree.setdefault(parent_key, 0)
+
+        unique_children: dict[str, str] = {}
+        for child in children:
+            child_key = child.lower()
+            unique_children[child_key] = child
+
+        for child_key, original in unique_children.items():
+            display_names.setdefault(child_key, original)
+            adjacency.setdefault(child_key, [])
+            indegree.setdefault(child_key, 0)
+            if parent_key not in adjacency[child_key]:
+                adjacency[child_key].append(parent_key)
+                indegree[parent_key] += 1
+
+    sorted_initial = sorted(
+        [key for key, degree in indegree.items() if degree == 0],
+        key=lambda item: display_names[item].lower(),
+    )
+    queue: deque[str] = deque(sorted_initial)
+    processed_order: list[str] = []
+    local_indegree = indegree.copy()
+
+    while queue:
+        current = queue.popleft()
+        processed_order.append(display_names[current])
+        new_candidates: list[str] = []
+        for parent in adjacency.get(current, []):
+            local_indegree[parent] -= 1
+            if local_indegree[parent] == 0:
+                new_candidates.append(parent)
+        for node in sorted(new_candidates, key=lambda item: display_names[item].lower()):
+            queue.append(node)
+
+    cycle_nodes = [
+        display_names[key]
+        for key, degree in local_indegree.items()
+        if degree > 0
+    ]
+
+    return processed_order, cycle_nodes, fallback_order
+
+
+def print_load_order(
+    processed_order: list[str],
+    *,
+    cycle_nodes: list[str],
+    fallback_order: list[str],
+) -> None:
+    if processed_order:
+        print("Load order (leaf → root):")
+        for index, name in enumerate(processed_order, start=1):
+            print(f"{index}. {name}")
+    else:
+        print("Load order unavailable (cycle detected); showing BFS order:")
+        for index, name in enumerate(fallback_order, start=1):
+            print(f"{index}. {name}")
+
+    if cycle_nodes:
+        print("Cycle detected; unresolved nodes:")
+        for name in sorted({node for node in cycle_nodes}):
+            print(f"- {name}")
+
+
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
 
@@ -366,6 +460,7 @@ def main(argv: list[str]) -> int:
         "ascii_mode": args.ascii_mode,
         "max_depth": args.max_depth,
         "filter_substring": args.filter_substring,
+        "show_load_order": args.show_load_order,
     }
 
     print_configuration(parameters)
@@ -420,6 +515,9 @@ def main(argv: list[str]) -> int:
 
     print_dependencies(dependencies)
     print_graph(entries, edges, max_depth=args.max_depth, skipped=skipped)
+    if args.show_load_order:
+        order, cycle_nodes, fallback = calculate_load_order(entries, edges)
+        print_load_order(order, cycle_nodes=cycle_nodes, fallback_order=fallback)
 
     return 0
 
