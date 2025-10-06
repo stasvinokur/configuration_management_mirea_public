@@ -1,9 +1,15 @@
-"""Stage 1 CLI prototype for the dependency visualization tool."""
+#!/usr/bin/env python3
+"""Stage 2 CLI prototype for the dependency visualization tool."""
 
 import argparse
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterable
 from urllib.parse import urlparse
+from urllib.request import urlopen
+
+import tomllib
 
 
 def package_name(value: str) -> str:
@@ -109,6 +115,96 @@ def is_url(value: str) -> bool:
     return bool(parsed.scheme and parsed.netloc)
 
 
+@dataclass
+class DirectDependency:
+    name: str
+    requirement: str
+
+
+def load_manifest(path: str, mode: str) -> dict:
+    try:
+        if mode == "real":
+            return tomllib.loads(read_url(path))
+        return tomllib.loads(Path(path).read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise RuntimeError(f"cannot read manifest file: {path}") from exc
+    except OSError as exc:
+        raise RuntimeError(f"failed to read manifest: {exc}") from exc
+    except tomllib.TOMLDecodeError as exc:
+        raise RuntimeError(f"invalid Cargo.toml format: {exc}") from exc
+
+
+def read_url(url: str) -> str:
+    try:
+        with urlopen(url) as response:  # type: ignore[arg-type]
+            data = response.read()
+    except OSError as exc:  # network failure or unreachable host
+        raise RuntimeError(f"failed to fetch manifest from URL: {exc}") from exc
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise RuntimeError("manifest must be utf-8 encoded") from exc
+
+
+def extract_direct_dependencies(manifest: dict) -> list[DirectDependency]:
+    deps_section = manifest.get("dependencies", {})
+    if not isinstance(deps_section, dict):
+        return []
+
+    dependencies: list[DirectDependency] = []
+    for name, spec in deps_section.items():
+        requirement = dependency_requirement(spec)
+        dependencies.append(DirectDependency(name=name, requirement=requirement))
+    return dependencies
+
+
+def dependency_requirement(spec: object) -> str:
+    if isinstance(spec, str):
+        return spec
+    if isinstance(spec, dict):
+        value = spec.get("version")
+        if isinstance(value, str) and value.strip():
+            return value
+        return "<unspecified>"
+    return "<unknown>"
+
+
+def validate_manifest(manifest: dict, *, expected_name: str, expected_version: str) -> None:
+    package = manifest.get("package", {})
+    if not isinstance(package, dict):
+        raise RuntimeError("manifest does not contain [package] section")
+
+    name = package.get("name")
+    if name != expected_name:
+        raise RuntimeError(
+            f"manifest package name '{name}' does not match requested '{expected_name}'"
+        )
+
+    version = package.get("version")
+    if version != expected_version:
+        raise RuntimeError(
+            f"manifest version '{version}' does not match requested '{expected_version}'"
+        )
+
+
+def print_configuration(parameters: dict[str, object]) -> None:
+    for key, value in parameters.items():
+        if value is None or value == "":
+            print(f"{key}: <not set>")
+        else:
+            print(f"{key}: {value}")
+
+
+def print_dependencies(dependencies: Iterable[DirectDependency]) -> None:
+    deps = list(dependencies)
+    if not deps:
+        print("Direct dependencies: <none>")
+        return
+    print("Direct dependencies:")
+    for dep in deps:
+        print(f"- {dep.name}: {dep.requirement}")
+
+
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
 
@@ -122,11 +218,21 @@ def main(argv: list[str]) -> int:
         "filter_substring": args.filter_substring,
     }
 
-    for key, value in parameters.items():
-        if value is None or value == "":
-            print(f"{key}: <not set>")
-        else:
-            print(f"{key}: {value}")
+    print_configuration(parameters)
+
+    try:
+        manifest = load_manifest(args.repository, args.test_mode)
+        validate_manifest(
+            manifest,
+            expected_name=args.package,
+            expected_version=args.version,
+        )
+        dependencies = extract_direct_dependencies(manifest)
+    except RuntimeError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+
+    print_dependencies(dependencies)
 
     return 0
 
