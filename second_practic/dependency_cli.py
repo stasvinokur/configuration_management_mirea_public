@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 3 CLI prototype for the dependency visualization tool."""
+"""Stage 5 CLI prototype for the dependency visualization tool."""
 
 import argparse
 import sys
@@ -132,6 +132,11 @@ class GraphEntry:
     name: str
     version: str | None
     depth: int
+
+
+EdgeKey = tuple[str, str | None]
+EdgeTargets = list[tuple[str, str | None]]
+GraphEdges = dict[EdgeKey, EdgeTargets]
 
 
 def load_manifest(path: str, mode: str) -> dict:
@@ -297,11 +302,11 @@ def build_dependency_graph(
     *,
     max_depth: int,
     filter_substring: str | None,
-) -> tuple[list[GraphEntry], dict[tuple[str, str | None], list[str]], list[str]]:
+) -> tuple[list[GraphEntry], GraphEdges, list[str]]:
     queue: deque[tuple[str, str | None, int]] = deque([(root_name, root_version, 0)])
     visited: set[tuple[str, str | None]] = set()
     entries: list[GraphEntry] = []
-    edges: dict[tuple[str, str | None], list[str]] = {}
+    edges: GraphEdges = {}
     skipped: list[str] = []
 
     while queue:
@@ -313,16 +318,21 @@ def build_dependency_graph(
         entries.append(GraphEntry(name, version, depth))
 
         dependencies = provider(name, version)
-        children: list[str] = []
+        children: list[tuple[str, str | None]] = []
+        seen_child_keys: set[tuple[str, str | None]] = set()
         if depth < max_depth:
             for dep in dependencies:
                 if should_filter(dep.name, filter_substring):
                     skipped.append(dep.name)
                     continue
-                children.append(dep.name)
                 version_value = dep.requirement if dep.requirement else None
                 if version_value and version_value.startswith("<"):
                     version_value = None
+                child_key = (dep.name, version_value)
+                normalized = (dep.name.lower(), version_value)
+                if normalized not in seen_child_keys:
+                    seen_child_keys.add(normalized)
+                    children.append(child_key)
                 queue.append((dep.name, version_value, depth + 1))
         edges[(name.lower(), version)] = children
 
@@ -339,7 +349,7 @@ def format_label(name: str, version: str | None) -> str:
 
 def print_graph(
     entries: list[GraphEntry],
-    edges: dict[tuple[str, str | None], list[str]],
+    edges: GraphEdges,
     *,
     max_depth: int,
     skipped: Iterable[str],
@@ -349,7 +359,11 @@ def print_graph(
         label = format_label(entry.name, entry.version)
         children = edges.get((entry.name.lower(), entry.version), [])
         if children:
-            print(f"- depth {entry.depth}: {label} -> {', '.join(children)}")
+            formatted_children = ", ".join(
+                format_label(child_name, child_version)
+                for child_name, child_version in children
+            )
+            print(f"- depth {entry.depth}: {label} -> {formatted_children}")
         else:
             print(f"- depth {entry.depth}: {label} -> <none>")
 
@@ -362,8 +376,11 @@ def print_graph(
 
 def calculate_load_order(
     entries: Iterable[GraphEntry],
-    edges: dict[tuple[str, str | None], list[str]],
+    edges: GraphEdges,
 ) -> tuple[list[str], list[str], list[str]]:
+    entry_lookup: dict[EdgeKey, GraphEntry] = {
+        (entry.name.lower(), entry.version): entry for entry in entries
+    }
     display_names: dict[str, str] = {}
     adjacency: dict[str, list[str]] = {}
     indegree: dict[str, int] = {}
@@ -374,26 +391,33 @@ def calculate_load_order(
     for entry in entries:
         key = entry.name.lower()
         if key not in display_names:
-            display_names[key] = entry.name
+            display_names[key] = format_label(entry.name, entry.version)
         adjacency.setdefault(key, [])
         indegree.setdefault(key, 0)
         if key not in fallback_seen:
-            fallback_order.append(entry.name)
+            fallback_order.append(format_label(entry.name, entry.version))
             fallback_seen.add(key)
 
-    for (source_lower, _version), children in edges.items():
+    for (source_lower, parent_version), children in edges.items():
+        parent_entry = entry_lookup.get((source_lower, parent_version))
+        parent_label = (
+            format_label(parent_entry.name, parent_entry.version)
+            if parent_entry
+            else format_label(source_lower, parent_version)
+        )
         parent_key = source_lower
-        display_names.setdefault(parent_key, parent_key)
+        display_names.setdefault(parent_key, parent_label)
         adjacency.setdefault(parent_key, [])
         indegree.setdefault(parent_key, 0)
 
-        unique_children: dict[str, str] = {}
+        unique_children: dict[str, tuple[str, str | None]] = {}
         for child in children:
-            child_key = child.lower()
+            child_name, child_version = child
+            child_key = child_name.lower()
             unique_children[child_key] = child
 
-        for child_key, original in unique_children.items():
-            display_names.setdefault(child_key, original)
+        for child_key, (child_name, child_version) in unique_children.items():
+            display_names.setdefault(child_key, format_label(child_name, child_version))
             adjacency.setdefault(child_key, [])
             indegree.setdefault(child_key, 0)
             if parent_key not in adjacency[child_key]:
@@ -449,6 +473,99 @@ def print_load_order(
             print(f"- {name}")
 
 
+def generate_mermaid(entries: Iterable[GraphEntry], edges: GraphEdges) -> str:
+    node_ids: dict[EdgeKey, str] = {}
+    entry_lookup: dict[EdgeKey, GraphEntry] = {
+        (entry.name.lower(), entry.version): entry for entry in entries
+    }
+
+    lines: list[str] = ["graph TD"]
+
+    def ensure_node(name: str, version: str | None) -> str:
+        key = (name.lower(), version)
+        if key in node_ids:
+            return node_ids[key]
+        node_id = f"n{len(node_ids)}"
+        node_ids[key] = node_id
+        entry = entry_lookup.get(key)
+        label = format_label(entry.name, entry.version) if entry else format_label(name, version)
+        lines.append(f'    {node_id}["{label}"]')
+        return node_id
+
+    for entry in entries:
+        ensure_node(entry.name, entry.version)
+
+    for (parent_lower, parent_version), children in edges.items():
+        parent_entry = entry_lookup.get((parent_lower, parent_version))
+        parent_name = parent_entry.name if parent_entry else parent_lower
+        parent_id = ensure_node(parent_name, parent_version)
+        for child_name, child_version in children:
+            child_id = ensure_node(child_name, child_version)
+            lines.append(f"    {parent_id} --> {child_id}")
+
+    return "\n".join(lines)
+
+
+def print_mermaid(entries: Iterable[GraphEntry], edges: GraphEdges) -> None:
+    print("Mermaid diagram:")
+    print(generate_mermaid(entries, edges))
+
+
+def print_ascii_tree(
+    entries: Iterable[GraphEntry],
+    edges: GraphEdges,
+    *,
+    root_name: str,
+    root_version: str | None,
+    mode: str,
+) -> None:
+    entry_lookup: dict[EdgeKey, GraphEntry] = {
+        (entry.name.lower(), entry.version): entry for entry in entries
+    }
+    root_key: EdgeKey = (root_name.lower(), root_version)
+    if root_key not in entry_lookup:
+        entry_lookup[root_key] = GraphEntry(root_name, root_version, 0)
+
+    print(f"ASCII tree ({mode}):")
+
+    visited: set[EdgeKey] = set()
+
+    def walk(key: EdgeKey, prefix: str, is_last: bool, path: set[EdgeKey], is_root: bool = False) -> None:
+        entry = entry_lookup.get(key)
+        label = format_label(entry.name if entry else key[0], entry.version if entry else key[1])
+        if is_root:
+            print(label)
+        else:
+            connector = "\\-- " if is_last else "+-- "
+            print(f"{prefix}{connector}{label}")
+
+        if mode == "compact":
+            if key in visited:
+                return
+            visited.add(key)
+
+        children = edges.get(key, [])
+        if not children:
+            return
+
+        next_prefix = prefix + ("    " if is_last else "|   ")
+        for index, (child_name, child_version) in enumerate(children):
+            child_key: EdgeKey = (child_name.lower(), child_version)
+            last_child = index == len(children) - 1
+            if child_key in path:
+                cycle_label = format_label(child_name, child_version) + " (cycle)"
+                connector = "\\-- " if last_child else "+-- "
+                print(f"{next_prefix}{connector}{cycle_label}")
+                continue
+            walk(
+                child_key,
+                next_prefix,
+                last_child,
+                path | {child_key},
+            )
+
+    walk(root_key, "", True, {root_key}, is_root=True)
+
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
 
@@ -465,6 +582,7 @@ def main(argv: list[str]) -> int:
 
     print_configuration(parameters)
 
+    root_version: str | None = None
     try:
         if args.test_mode == "real":
             manifest = load_manifest(args.repository, args.test_mode)
@@ -476,7 +594,7 @@ def main(argv: list[str]) -> int:
             dependencies, provider = create_manifest_provider(
                 args.package, args.version, manifest
             )
-            root_version: str | None = args.version
+            root_version = args.version
         else:
             kind, content = read_test_repository(Path(args.repository))
             if kind == "manifest":
@@ -515,6 +633,15 @@ def main(argv: list[str]) -> int:
 
     print_dependencies(dependencies)
     print_graph(entries, edges, max_depth=args.max_depth, skipped=skipped)
+    print_mermaid(entries, edges)
+    if args.ascii_mode != "disabled":
+        print_ascii_tree(
+            entries,
+            edges,
+            root_name=args.package,
+            root_version=root_version,
+            mode=args.ascii_mode,
+        )
     if args.show_load_order:
         order, cycle_nodes, fallback = calculate_load_order(entries, edges)
         print_load_order(order, cycle_nodes=cycle_nodes, fallback_order=fallback)

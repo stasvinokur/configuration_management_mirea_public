@@ -331,3 +331,42 @@ uv run shell_emulator.py --vfs ./vfs/three_levels.xml --script ./scripts/demo_st
     --show-load-order
   ```
   Команда покажет частичный порядок и список узлов в цикле (A, C, E) для дальнейшего анализа и сравнения с результатом `cargo tree`.
+
+### Этап 5
+- После построения графа автоматически выводится описание на языке Mermaid (`graph TD ...`), которое можно вставить в любой онлайн-рендерер диаграмм.
+- Параметр `--ascii-mode` теперь реально работает: поддержаны режимы `compact` (узел печатается один раз) и `full` (показываются повторные вхождения, циклы помечаются явным образом).
+- На тех же данных можно сверить результаты визуализации с `cargo tree` или аналогами; расхождения удобно объяснять, сравнивая ASCII-дерево и порядок загрузки.
+
+#### Как запускать
+- Манифест Cargo (`compact`):
+  ```bash
+  uv run python second_practic/dependency_cli.py \
+    --package sample \
+    --repository ./second_practic/test_data/sample_crate/Cargo.toml \
+    --version 1.0 \
+    --test-mode file \
+    --ascii-mode compact
+  ```
+  На экране появятся Mermaid-диаграмма и компактное ASCII-дерево.
+- Тестовый граф (`full`, демонстрация цикла):
+  ```bash
+  uv run python second_practic/dependency_cli.py \
+    --package A \
+    --repository ./second_practic/test_data/graph_repo.txt \
+    --version 0.1 \
+    --test-mode file \
+    --max-depth 3 \
+    --ascii-mode full
+  ```
+  ASCII-дерево покажет ветку `E -> A (cycle)`, а Mermaid-диаграмма позволит визуально отследить цикл.
+- Альтернативный пакет (`compact`, без цикла):
+  ```bash
+  uv run python second_practic/dependency_cli.py \
+    --package B \
+    --repository ./second_practic/test_data/graph_repo.txt \
+    --version 0.1 \
+    --test-mode file \
+    --max-depth 2 \
+    --ascii-mode compact
+  ```
+  Можно сравнить получившееся дерево с выводом `cargo tree -p B` (если есть реальный проект) и убедиться, что визуализация соответствует ожиданиям.
