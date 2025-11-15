@@ -348,6 +348,7 @@ uv run shell_emulator.py --vfs ./vfs/three_levels.xml --script ./scripts/demo_st
     --ascii-mode compact
   ```
   На экране появятся Mermaid-диаграмма и компактное ASCII-дерево.
+
 - Тестовый граф (`full`, демонстрация цикла):
   ```bash
   uv run python second_practic/dependency_cli.py \
@@ -359,6 +360,7 @@ uv run shell_emulator.py --vfs ./vfs/three_levels.xml --script ./scripts/demo_st
     --ascii-mode full
   ```
   ASCII-дерево покажет ветку `E -> A (cycle)`, а Mermaid-диаграмма позволит визуально отследить цикл.
+
 - Альтернативный пакет (`compact`, без цикла):
   ```bash
   uv run python second_practic/dependency_cli.py \
